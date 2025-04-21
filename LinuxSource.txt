@@ -2,12 +2,13 @@ local TweenService = game:GetService("TweenService")
 local InputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
-local DataStoreService = game:GetService("DataStoreService")
+local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
-local ConfigStore = DataStoreService:GetDataStore("LinuxUIConfig")
-
 local Linux = {}
+
+local configFile = "LinuxConfig.json"
+local configs = {}
 
 function Linux.Instance(class, props)
     local inst = Instance.new(class)
@@ -31,18 +32,28 @@ function Linux:SafeCallback(Function, ...)
     end
 end
 
-function Linux:SaveConfig(key, value)
-    pcall(function()
-        ConfigStore:SetAsync(tostring(key), value)
+function Linux:SaveConfigs()
+    local success, encoded = pcall(function()
+        return HttpService:JSONEncode(configs)
     end)
+    if success then
+        writefile(configFile, encoded)
+    end
 end
 
-function Linux:LoadConfig(key, default)
-    local success, value = pcall(function()
-        return ConfigStore:GetAsync(tostring(key))
-    end)
-    return success and value or default
+function Linux:LoadConfigs()
+    if isfile(configFile) then
+        local data = readfile(configFile)
+        local success, parsed = pcall(function()
+            return HttpService:JSONDecode(data)
+        end)
+        if success and parsed then
+            configs = parsed
+        end
+    end
 end
+
+Linux:LoadConfigs()
 
 function Linux:Notify(config)
     local isMobile = InputService.TouchEnabled and not InputService.KeyboardEnabled
@@ -60,9 +71,9 @@ function Linux:Notify(config)
 
     local Notification = Linux.Instance("Frame", {
         Parent = NotificationHolder,
-        BackgroundColor3 = Color3.fromRGB(10, 10, 10),
-        BackgroundTransparency = 0.3,
-        BorderSizePixel = 0,
+        BackgroundColor3 = Color3.fromRGB(15, 15, 15),
+        BorderColor3 = Color3.fromRGB(255, 255, 255),
+        BorderSizePixel = 2,
         Size = UDim2.new(0, notificationWidth, 0, notificationHeight),
         Position = UDim2.new(1, 10, 1, -notificationHeight - 10),
         ZIndex = 100
@@ -71,15 +82,6 @@ function Linux:Notify(config)
     Linux.Instance("UICorner", {
         Parent = Notification,
         CornerRadius = UDim.new(0, 6)
-    })
-
-    Linux.Instance("UIGradient", {
-        Parent = Notification,
-        Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 139))
-        }),
-        Rotation = 45
     })
 
     Linux.Instance("TextLabel", {
@@ -144,7 +146,7 @@ function Linux:Notify(config)
 
     local ProgressFill = Linux.Instance("Frame", {
         Parent = ProgressBar,
-        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+        BackgroundColor3 = Color3.fromRGB(0, 120, 255),
         Size = UDim2.new(0, 0, 1, 0),
         ZIndex = 101,
         BorderSizePixel = 0
@@ -153,15 +155,6 @@ function Linux:Notify(config)
     Linux.Instance("UICorner", {
         Parent = ProgressFill,
         CornerRadius = UDim.new(0, 2)
-    })
-
-    Linux.Instance("UIGradient", {
-        Parent = ProgressFill,
-        Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 139))
-        }),
-        Rotation = 45
     })
 
     local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -204,9 +197,9 @@ function Linux.Create(config)
 
     local Main = Linux.Instance("Frame", {
         Parent = LinuxUI,
-        BackgroundColor3 = Color3.fromRGB(10, 10, 10),
-        BackgroundTransparency = 0.3,
-        BorderSizePixel = 0,
+        BackgroundColor3 = Color3.fromRGB(19, 19, 19),
+        BorderColor3 = Color3.fromRGB(255, 255, 255),
+        BorderSizePixel = 2,
         Size = uiSize,
         Position = UDim2.new(0.5, -uiSize.X.Offset / 2, 0.5, -uiSize.Y.Offset / 2),
         Active = true,
@@ -219,40 +212,12 @@ function Linux.Create(config)
         CornerRadius = UDim.new(0, 10)
     })
 
-    Linux.Instance("UIGradient", {
-        Parent = Main,
-        Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 139))
-        }),
-        Rotation = 45
-    })
-
-    local DropShadow = Linux.Instance("Frame", {
-        Parent = Main,
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 20, 1, 20),
-        Position = UDim2.new(0, -10, 0, -10),
-        ZIndex = 0
-    })
-
-    Linux.Instance("ImageLabel", {
-        Parent = DropShadow,
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 1, 0),
-        Image = "rbxassetid://6014261993",
-        ImageColor3 = Color3.fromRGB(0, 0, 0),
-        ImageTransparency = 0.7,
-        ScaleType = Enum.ScaleType.Slice,
-        SliceCenter = Rect.new(10, 10, 118, 118)
-    })
-
     local TopBar = Linux.Instance("Frame", {
         Parent = Main,
-        BackgroundColor3 = Color3.fromRGB(10, 10, 10),
-        BackgroundTransparency = 0.3,
-        BorderSizePixel = 0,
-        Size = UDim2.new(1, 0, 0, 30),
+        BackgroundColor3 = Color3.fromRGB(19, 19, 19),
+        BorderColor3 = Color3.fromRGB(255, 255, 255),
+        BorderSizePixel = 2,
+        Size = UDim2.new(1, 0, 0, 25),
         ZIndex = 2
     })
 
@@ -261,83 +226,27 @@ function Linux.Create(config)
         CornerRadius = UDim.new(0, 6)
     })
 
-    Linux.Instance("UIGradient", {
-        Parent = TopBar,
-        Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 139))
-        }),
-        Rotation = 45
-    })
-
     local TitleLabel = Linux.Instance("TextLabel", {
         Parent = TopBar,
         BackgroundTransparency = 1,
         Size = UDim2.new(0, 0, 1, 0),
-        Position = UDim2.new(0, 10, 0, 0),
+        Position = UDim2.new(0, 5, 0, 0),
         Font = Enum.Font.SourceSansBold,
         Text = config.Name or "Linux UI",
         TextColor3 = Color3.fromRGB(255, 255, 255),
-        TextSize = 18,
+        TextSize = 16,
         TextXAlignment = Enum.TextXAlignment.Left,
         AutomaticSize = Enum.AutomaticSize.X,
         ZIndex = 2
     })
 
-    local BetaLabel
-    if config.ShowBetaLabel ~= false then
-        BetaLabel = Linux.Instance("Frame", {
-            Parent = TopBar,
-            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-            Size = UDim2.new(0, 40, 0, 16),
-            Position = UDim2.new(0, TitleLabel.TextBounds.X + 15, 0, 7),
-            ZIndex = 2
-        })
-
-        Linux.Instance("UIGradient", {
-            Parent = BetaLabel,
-            Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 139))
-            }),
-            Rotation = 45
-        })
-
-        Linux.Instance("UICorner", {
-            Parent = BetaLabel,
-            CornerRadius = UDim.new(0, 6)
-        })
-
-        Linux.Instance("TextLabel", {
-            Parent = BetaLabel,
-            BackgroundTransparency = 1,
-            Size = UDim2.new(1, 0, 1, 0),
-            Font = Enum.Font.SourceSansBold,
-            Text = "BETA",
-            TextColor3 = Color3.fromRGB(255, 255, 255),
-            TextSize = 12,
-            TextXAlignment = Enum.TextXAlignment.Center,
-            ZIndex = 2
-        })
-    end
-
     local TabsBar = Linux.Instance("Frame", {
         Parent = Main,
-        BackgroundColor3 = Color3.fromRGB(10, 10, 10),
-        BackgroundTransparency = 0.5,
-        Position = UDim2.new(0, 0, 0, 30),
-        Size = UDim2.new(0, config.TabWidth or 110, 1, -30),
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 0, 0, 25),
+        Size = UDim2.new(0, config.TabWidth or 110, 1, -25),
         ZIndex = 2,
         BorderSizePixel = 0
-    })
-
-    Linux.Instance("UIGradient", {
-        Parent = TabsBar,
-        Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 139))
-        }),
-        Rotation = 45
     })
 
     local TabHolder = Linux.Instance("ScrollingFrame", {
@@ -355,7 +264,7 @@ function Linux.Create(config)
 
     Linux.Instance("UIListLayout", {
         Parent = TabHolder,
-        Padding = UDim.new(0, 5),
+        Padding = UDim.new(0, 3),
         HorizontalAlignment = Enum.HorizontalAlignment.Left,
         VerticalAlignment = Enum.VerticalAlignment.Top,
         SortOrder = Enum.SortOrder.LayoutOrder
@@ -370,10 +279,11 @@ function Linux.Create(config)
     local Content = Linux.Instance("Frame", {
         Parent = Main,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, config.TabWidth or 110, 0, 30),
-        Size = UDim2.new(1, -(config.TabWidth or 110), 1, -30),
+        Position = UDim2.new(0, config.TabWidth or 110, 0, 25),
+        Size = UDim2.new(1, -(config.TabWidth or 110), 1, -25),
         ZIndex = 1,
-        BorderSizePixel = 0
+        BorderSizePixel = 2,
+        BorderColor3 = Color3.fromRGB(50, 50, 50)
     })
 
     local isHidden = false
@@ -396,10 +306,10 @@ function Linux.Create(config)
 
         local TabBtn = Linux.Instance("TextButton", {
             Parent = TabHolder,
-            BackgroundColor3 = Color3.fromRGB(10, 10, 10),
-            BackgroundTransparency = 0.5,
-            BorderSizePixel = 0,
-            Size = UDim2.new(1, -5, 0, 30),
+            BackgroundColor3 = Color3.fromRGB(22, 22, 22),
+            BorderColor3 = Color3.fromRGB(255, 255, 255),
+            BorderSizePixel = 2,
+            Size = UDim2.new(1, -5, 0, 28),
             Font = Enum.Font.SourceSans,
             Text = "",
             TextColor3 = Color3.fromRGB(255, 255, 255),
@@ -459,7 +369,8 @@ function Linux.Create(config)
             AutomaticCanvasSize = Enum.AutomaticSize.Y,
             ScrollBarThickness = 0,
             ZIndex = 1,
-            BorderSizePixel = 0,
+            BorderSizePixel = 2,
+            BorderColor3 = Color3.fromRGB(50, 50, 50),
             ScrollingEnabled = true,
             CanvasPosition = Vector2.new(0, 0)
         })
@@ -486,7 +397,8 @@ function Linux.Create(config)
             AutomaticCanvasSize = Enum.AutomaticSize.Y,
             ScrollBarThickness = 0,
             ZIndex = 1,
-            BorderSizePixel = 0,
+            BorderSizePixel = 2,
+            BorderColor3 = Color3.fromRGB(50, 50, 50),
             ScrollingEnabled = true,
             CanvasPosition = Vector2.new(0, 0)
         })
@@ -506,8 +418,7 @@ function Linux.Create(config)
 
         local TitleFrame = Linux.Instance("Frame", {
             Parent = Content,
-            BackgroundColor3 = Color3.fromRGB(10, 10, 10),
-            BackgroundTransparency = 0.3,
+            BackgroundColor3 = Color3.fromRGB(19, 19, 19),
             BorderSizePixel = 0,
             Size = UDim2.new(1, -5, 0, 30),
             Position = UDim2.new(0, 5, 0, 0),
@@ -515,24 +426,15 @@ function Linux.Create(config)
             ZIndex = 3
         })
 
-        Linux.Instance("UIGradient", {
-            Parent = TitleFrame,
-            Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 139))
-            }),
-            Rotation = 45
-        })
-
         local TitleLabel = Linux.Instance("TextLabel", {
             Parent = TitleFrame,
             BackgroundTransparency = 1,
             Size = UDim2.new(1, 0, 1, 0),
-            Position = UDim2.new(0, 5, 0, 0),
+            Position = UDim2.new(0, 0, 0, 0),
             Font = Enum.Font.SourceSansBold,
             Text = config.Name,
             TextColor3 = Color3.fromRGB(255, 255, 255),
-            TextSize = 18,
+            TextSize = 26,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextYAlignment = Enum.TextYAlignment.Center,
             ZIndex = 4
@@ -543,8 +445,7 @@ function Linux.Create(config)
                 tab.Content.Visible = false
                 tab.TitleFrame.Visible = false
                 tab.Text.TextColor3 = Color3.fromRGB(255, 255, 255)
-                tab.Button.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-                tab.Button.BackgroundTransparency = 0.5
+                tab.Button.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
                 for _, child in pairs(tab.Button:GetChildren()) do
                     if child:IsA("UIGradient") then
                         child:Destroy()
@@ -558,12 +459,11 @@ function Linux.Create(config)
             TitleFrame.Visible = true
             TabText.TextColor3 = Color3.fromRGB(255, 255, 255)
             TabBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            TabBtn.BackgroundTransparency = 0
             TabGradient = Linux.Instance("UIGradient", {
                 Parent = TabBtn,
                 Color = ColorSequence.new({
                     ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
-                    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 139))
+                    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 139))
                 }),
                 Rotation = 45
             })
@@ -606,9 +506,9 @@ function Linux.Create(config)
 
             local BtnFrame = Linux.Instance("Frame", {
                 Parent = container,
-                BackgroundColor3 = Color3.fromRGB(10, 10, 10),
-                BackgroundTransparency = 0.5,
-                BorderSizePixel = 0,
+                BackgroundColor3 = Color3.fromRGB(22, 22, 22),
+                BorderColor3 = Color3.fromRGB(50, 50, 50),
+                BorderSizePixel = 2,
                 Size = UDim2.new(1, -5, 0, 34),
                 ZIndex = 2,
                 LayoutOrder = elementOrder
@@ -617,15 +517,6 @@ function Linux.Create(config)
             Linux.Instance("UICorner", {
                 Parent = BtnFrame,
                 CornerRadius = UDim.new(0, 6)
-            })
-
-            Linux.Instance("UIGradient", {
-                Parent = BtnFrame,
-                Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
-                    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 139))
-                }),
-                Rotation = 45
             })
 
             local Btn = Linux.Instance("TextButton", {
@@ -657,29 +548,28 @@ function Linux.Create(config)
                 ZIndex = 2
             })
 
-            local hoverColor = Color3.fromRGB(20, 20, 20)
-            local clickColor = Color3.fromRGB(255, 255, 255)
-            local originalColor = Color3.fromRGB(10, 10, 10)
-            local originalTransparency = 0.5
+            local hoverColor = Color3.fromRGB(40, 40, 40)
+            local clickColor = Color3.fromRGB(0, 120, 255)
+            local originalColor = Color3.fromRGB(22, 22, 22)
             local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
             Btn.MouseEnter:Connect(function()
-                TweenService:Create(BtnFrame, tweenInfo, {BackgroundColor3 = hoverColor, BackgroundTransparency = 0.4}):Play()
+                TweenService:Create(BtnFrame, tweenInfo, {BackgroundColor3 = hoverColor}):Play()
             end)
 
             Btn.MouseLeave:Connect(function()
-                TweenService:Create(BtnFrame, tweenInfo, {BackgroundColor3 = originalColor, BackgroundTransparency = originalTransparency}):Play()
+                TweenService:Create(BtnFrame, tweenInfo, {BackgroundColor3 = originalColor}):Play()
             end)
 
             Btn.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    TweenService:Create(BtnFrame, tweenInfo, {BackgroundColor3 = clickColor, BackgroundTransparency = 0}):Play()
+                    TweenService:Create(BtnFrame, tweenInfo, {BackgroundColor3 = clickColor}):Play()
                 end
             end)
 
             Btn.InputEnded:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    TweenService:Create(BtnFrame, tweenInfo, {BackgroundColor3 = originalColor, BackgroundTransparency = originalTransparency}):Play()
+                    TweenService:Create(BtnFrame, tweenInfo, {BackgroundColor3 = originalColor}):Play()
                 end
             end)
 
@@ -700,11 +590,17 @@ function Linux.Create(config)
                 elementOrder1 = elementOrder1 + 1
             end
 
+            local toggleId = config.Id or (config.Name .. "_" .. tabIndex .. "_" .. elementOrder)
+            local defaultState = config.Default or false
+            if configs[toggleId] ~= nil then
+                defaultState = configs[toggleId]
+            end
+
             local Toggle = Linux.Instance("Frame", {
                 Parent = container,
-                BackgroundColor3 = Color3.fromRGB(10, 10, 10),
-                BackgroundTransparency = 0.5,
-                BorderSizePixel = 0,
+                BackgroundColor3 = Color3.fromRGB(22, 22, 22),
+                BorderColor3 = Color3.fromRGB(50, 50, 50),
+                BorderSizePixel = 2,
                 Size = UDim2.new(1, -5, 0, 34),
                 ZIndex = 2,
                 LayoutOrder = elementOrder
@@ -713,15 +609,6 @@ function Linux.Create(config)
             Linux.Instance("UICorner", {
                 Parent = Toggle,
                 CornerRadius = UDim.new(0, 6)
-            })
-
-            Linux.Instance("UIGradient", {
-                Parent = Toggle,
-                Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
-                    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 139))
-                }),
-                Rotation = 45
             })
 
             Linux.Instance("TextLabel", {
@@ -748,7 +635,7 @@ function Linux.Create(config)
 
             Linux.Instance("UICorner", {
                 Parent = ToggleBox,
-                CornerRadius = UDim.new(1, 0)
+                CornerRadius = UDim.new(0, 6)
             })
 
             local CheckIcon = Linux.Instance("ImageLabel", {
@@ -766,13 +653,13 @@ function Linux.Create(config)
                 Parent = ToggleBox,
                 Color = ColorSequence.new({
                     ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
-                    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 139))
+                    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 139))
                 }),
                 Rotation = 45,
                 Enabled = false
             })
 
-            local State = Linux:LoadConfig("Toggle_" .. config.Name, config.Default or false)
+            local State = defaultState
             local isToggling = false
 
             local function UpdateToggle()
@@ -790,7 +677,6 @@ function Linux.Create(config)
                 end
                 task.wait(0.2)
                 isToggling = false
-                Linux:SaveConfig("Toggle_" .. config.Name, State)
             end
 
             UpdateToggle()
@@ -798,6 +684,8 @@ function Linux.Create(config)
             ToggleBox.InputBegan:Connect(function(input)
                 if (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1) and not isToggling then
                     State = not State
+                    configs[toggleId] = State
+                    Linux:SaveConfigs()
                     UpdateToggle()
                     spawn(function() Linux:SafeCallback(config.Callback, State) end)
                 end
@@ -818,9 +706,9 @@ function Linux.Create(config)
 
             local Dropdown = Linux.Instance("Frame", {
                 Parent = container,
-                BackgroundColor3 = Color3.fromRGB(10, 10, 10),
-                BackgroundTransparency = 0.5,
-                BorderSizePixel = 0,
+                BackgroundColor3 = Color3.fromRGB(22, 22, 22),
+                BorderColor3 = Color3.fromRGB(50, 50, 50),
+                BorderSizePixel = 2,
                 Size = UDim2.new(1, -5, 0, 34),
                 ZIndex = 2,
                 LayoutOrder = elementOrder
@@ -829,15 +717,6 @@ function Linux.Create(config)
             Linux.Instance("UICorner", {
                 Parent = Dropdown,
                 CornerRadius = UDim.new(0, 6)
-            })
-
-            Linux.Instance("UIGradient", {
-                Parent = Dropdown,
-                Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
-                    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 139))
-                }),
-                Rotation = 45
             })
 
             local DropdownButton = Linux.Instance("TextButton", {
@@ -855,7 +734,7 @@ function Linux.Create(config)
             Linux.Instance("TextLabel", {
                 Parent = DropdownButton,
                 BackgroundTransparency = 1,
-                Size = UDim2.new(0.5, 0, 1, 0),
+                Size = UDim2.new(0.8, 0, 1, 0),
                 Position = UDim2.new(0, 5, 0, 0),
                 Font = Enum.Font.Gotham,
                 Text = config.Name,
@@ -868,10 +747,9 @@ function Linux.Create(config)
             local Selected = Linux.Instance("TextLabel", {
                 Parent = DropdownButton,
                 BackgroundTransparency = 1,
-                Size = UDim2.new(0.5, -40, 1, 0),
-                Position = UDim2.new(0.5, 0, 0, 0),
+                Size = UDim2.new(1, -40, 1, 0),
                 Font = Enum.Font.Gotham,
-                Text = Linux:LoadConfig("Dropdown_" .. config.Name, config.Default or (config.Options and config.Options[1]) or "None"),
+                Text = config.Default or (config.Options and config.Options[1]) or "None",
                 TextColor3 = Color3.fromRGB(255, 255, 255),
                 TextSize = 14,
                 TextXAlignment = Enum.TextXAlignment.Right,
@@ -890,9 +768,9 @@ function Linux.Create(config)
 
             local DropFrame = Linux.Instance("ScrollingFrame", {
                 Parent = container,
-                BackgroundColor3 = Color3.fromRGB(10, 10, 10),
-                BackgroundTransparency = 0.5,
-                BorderSizePixel = 0,
+                BackgroundColor3 = Color3.fromRGB(23, 23, 23),
+                BorderColor3 = Color3.fromRGB(50, 50, 50),
+                BorderSizePixel = 2,
                 Size = UDim2.new(1, -5, 0, 0),
                 CanvasSize = UDim2.new(0, 0, 0, 0),
                 AutomaticCanvasSize = Enum.AutomaticSize.Y,
@@ -905,15 +783,6 @@ function Linux.Create(config)
             Linux.Instance("UICorner", {
                 Parent = DropFrame,
                 CornerRadius = UDim.new(0, 6)
-            })
-
-            Linux.Instance("UIGradient", {
-                Parent = DropFrame,
-                Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
-                    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 139))
-                }),
-                Rotation = 45
             })
 
             Linux.Instance("UIListLayout", {
@@ -930,7 +799,7 @@ function Linux.Create(config)
 
             local Options = config.Options or {}
             local IsOpen = false
-            local SelectedValue = Linux:LoadConfig("Dropdown_" .. config.Name, config.Default or (Options[1] or "None"))
+            local SelectedValue = config.Default or (Options[1] or "None")
 
             local function UpdateDropSize()
                 local optionHeight = 25
@@ -960,13 +829,13 @@ function Linux.Create(config)
                     for _, opt in pairs(Options) do
                         local OptBtn = Linux.Instance("TextButton", {
                             Parent = DropFrame,
-                            BackgroundColor3 = Color3.fromRGB(10, 10, 10),
-                            BackgroundTransparency = 0.5,
-                            BorderSizePixel = 0,
+                            BackgroundColor3 = Color3.fromRGB(27, 27, 27),
+                            BorderColor3 = Color3.fromRGB(50, 50, 50),
+                            BorderSizePixel = 2,
                             Size = UDim2.new(1, -5, 0, 25),
                             Font = Enum.Font.Gotham,
                             Text = tostring(opt),
-                            TextColor3 = opt == SelectedValue and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 200),
+                            TextColor3 = opt == SelectedValue and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(255, 255, 255),
                             TextSize = 14,
                             TextXAlignment = Enum.TextXAlignment.Center,
                             ZIndex = 3,
@@ -978,42 +847,15 @@ function Linux.Create(config)
                             CornerRadius = UDim.new(0, 6)
                         })
 
-                        local OptGradient
-                        if opt == SelectedValue then
-                            OptGradient = Linux.Instance("UIGradient", {
-                                Parent = OptBtn,
-                                Color = ColorSequence.new({
-                                    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
-                                    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 139))
-                                }),
-                                Rotation = 45
-                            })
-                        end
-
                         OptBtn.MouseButton1Click:Connect(function()
                             SelectedValue = opt
                             Selected.Text = tostring(opt)
-                            Linux:SaveConfig("Dropdown_" .. config.Name, SelectedValue)
                             for _, btn in pairs(DropFrame:GetChildren()) do
                                 if btn:IsA("TextButton") then
-                                    btn.TextColor3 = btn.Text == tostring(opt) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 200)
-                                    for _, child in pairs(btn:GetChildren()) do
-                                        if child:IsA("UIGradient") then
-                                            child:Destroy()
-                                        end
-                                    end
-                                    if btn.Text == tostring(opt) then
-                                        Linux.Instance("UIGradient", {
-                                            Parent = btn,
-                                            Color = ColorSequence.new({
-                                                ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
-                                                ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 139))
-                                            }),
-                                            Rotation = 45
-                                        })
-                                    end
+                                    btn.TextColor3 = btn.Text == tostring(opt) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(255, 255, 255)
                                 end
                             end
+                            PopulateOptions()
                             spawn(function() Linux:SafeCallback(config.Callback, opt) end)
                         end)
                     end
@@ -1034,7 +876,6 @@ function Linux.Create(config)
                 Options = newOptions or {}
                 SelectedValue = Options[1] or "None"
                 Selected.Text = tostring(SelectedValue)
-                Linux:SaveConfig("Dropdown_" .. config.Name, SelectedValue)
                 PopulateOptions()
             end
 
@@ -1042,25 +883,9 @@ function Linux.Create(config)
                 if table.find(Options, value) then
                     SelectedValue = value
                     Selected.Text = tostring(value)
-                    Linux:SaveConfig("Dropdown_" .. config.Name, SelectedValue)
                     for _, btn in pairs(DropFrame:GetChildren()) do
                         if btn:IsA("TextButton") then
-                            btn.TextColor3 = btn.Text == tostring(value) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 200)
-                            for _, child in pairs(btn:GetChildren()) do
-                                if child:IsA("UIGradient") then
-                                    child:Destroy()
-                                end
-                            end
-                            if btn.Text == tostring(value) then
-                                Linux.Instance("UIGradient", {
-                                    Parent = btn,
-                                    Color = ColorSequence.new({
-                                        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
-                                        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 139))
-                                    }),
-                                    Rotation = 45
-                                })
-                            end
+                            btn.TextColor3 = btn.Text == tostring(value) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(255, 255, 255)
                         end
                     end
                     spawn(function() Linux:SafeCallback(config.Callback, value) end)
@@ -1087,9 +912,9 @@ function Linux.Create(config)
 
             local Slider = Linux.Instance("Frame", {
                 Parent = container,
-                BackgroundColor3 = Color3.fromRGB(10, 10, 10),
-                BackgroundTransparency = 0.5,
-                BorderSizePixel = 0,
+                BackgroundColor3 = Color3.fromRGB(22, 22, 22),
+                BorderColor3 = Color3.fromRGB(50, 50, 50),
+                BorderSizePixel = 2,
                 Size = UDim2.new(1, -5, 0, 34),
                 ZIndex = 2,
                 LayoutOrder = elementOrder
@@ -1098,15 +923,6 @@ function Linux.Create(config)
             Linux.Instance("UICorner", {
                 Parent = Slider,
                 CornerRadius = UDim.new(0, 6)
-            })
-
-            Linux.Instance("UIGradient", {
-                Parent = Slider,
-                Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
-                    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 139))
-                }),
-                Rotation = 45
             })
 
             local TitleLabel = Linux.Instance("TextLabel", {
@@ -1161,7 +977,9 @@ function Linux.Create(config)
                 Parent = FillBar,
                 Color = ColorSequence.new({
                     ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
-                    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 139))
+                    ColorSequenceKeypoint.new(0.33, Color3.fromRGB(0, 100, 255)),
+                    ColorSequenceKeypoint.new(0.67, Color3.fromRGB(0, 80, 255)),
+                    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 255))
                 }),
                 Rotation = 45
             })
@@ -1187,7 +1005,7 @@ function Linux.Create(config)
 
             local Min = config.Min or 0
             local Max = config.Max or 100
-            local Default = Linux:LoadConfig("Slider_" .. config.Name, config.Default or Min)
+            local Default = config.Default or Min
             local Value = Default
 
             local function AnimateValueLabel()
@@ -1205,9 +1023,8 @@ function Linux.Create(config)
                 Knob.Position = UDim2.new(relativePos, -6, 0, -3)
                 FillBar.Size = UDim2.new(relativePos, 0, 1, 0)
                 local percentage = math.floor((Value - Min) / (Max - Min) * 100 + 0.5)
-                ValueLabel.Text = tostring(Value) .. "/" .. tostring(Max)
+                ValueLabel.Text = tostring(percentage) .. "%"
                 AnimateValueLabel()
-                Linux:SaveConfig("Slider_" .. config.Name, Value)
                 spawn(function() Linux:SafeCallback(config.Callback, Value) end)
             end
 
@@ -1239,9 +1056,8 @@ function Linux.Create(config)
                 Knob.Position = UDim2.new(relativePos, -6, 0, -3)
                 FillBar.Size = UDim2.new(relativePos, 0, 1, 0)
                 local percentage = math.floor((Value - Min) / (Max - Min) * 100 + 0.5)
-                ValueLabel.Text = tostring(Value) .. "/" .. tostring(Max)
+                ValueLabel.Text = tostring(percentage) .. "%"
                 AnimateValueLabel()
-                Linux:SaveConfig("Slider_" .. config.Name, Value)
                 spawn(function() Linux:SafeCallback(config.Callback, Value) end)
             end
 
@@ -1266,9 +1082,9 @@ function Linux.Create(config)
 
             local Input = Linux.Instance("Frame", {
                 Parent = container,
-                BackgroundColor3 = Color3.fromRGB(10, 10, 10),
-                BackgroundTransparency = 0.5,
-                BorderSizePixel = 0,
+                BackgroundColor3 = Color3.fromRGB(22, 22, 22),
+                BorderColor3 = Color3.fromRGB(50, 50, 50),
+                BorderSizePixel = 2,
                 Size = UDim2.new(1, -5, 0, 34),
                 ZIndex = 2,
                 LayoutOrder = elementOrder
@@ -1277,15 +1093,6 @@ function Linux.Create(config)
             Linux.Instance("UICorner", {
                 Parent = Input,
                 CornerRadius = UDim.new(0, 6)
-            })
-
-            Linux.Instance("UIGradient", {
-                Parent = Input,
-                Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
-                    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 139))
-                }),
-                Rotation = 45
             })
 
             Linux.Instance("TextLabel", {
@@ -1303,15 +1110,14 @@ function Linux.Create(config)
 
             local TextBox = Linux.Instance("TextBox", {
                 Parent = Input,
-                BackgroundColor3 = Color3.fromRGB(20, 20, 20),
-                BackgroundTransparency = 0.5,
+                BackgroundColor3 = Color3.fromRGB(30, 30, 30),
                 BorderSizePixel = 0,
                 Size = UDim2.new(0.28, -5, 0, 26),
                 Position = UDim2.new(1, -55, 0.5, -12),
                 Font = Enum.Font.Gotham,
-                Text = Linux:LoadConfig("Input_" .. config.Name, config.Default or ""),
+                Text = config.Default or "",
                 PlaceholderText = config.Placeholder or "Text Here",
-                PlaceholderColor3 = Color3.fromRGB(200, 200, 200),
+                PlaceholderColor3 = Color3.fromRGB(255, 255, 255),
                 TextColor3 = Color3.fromRGB(255, 255, 255),
                 TextSize = 14,
                 TextScaled = false,
@@ -1325,15 +1131,6 @@ function Linux.Create(config)
             Linux.Instance("UICorner", {
                 Parent = TextBox,
                 CornerRadius = UDim.new(0, 6)
-            })
-
-            Linux.Instance("UIGradient", {
-                Parent = TextBox,
-                Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
-                    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 139))
-                }),
-                Rotation = 45
             })
 
             local MaxLength = 50
@@ -1350,7 +1147,6 @@ function Linux.Create(config)
 
             local function UpdateInput()
                 CheckTextBounds()
-                Linux:SaveConfig("Input_" .. config.Name, TextBox.Text)
                 spawn(function() Linux:SafeCallback(config.Callback, TextBox.Text) end)
             end
 
@@ -1394,9 +1190,9 @@ function Linux.Create(config)
 
             local LabelFrame = Linux.Instance("Frame", {
                 Parent = container,
-                BackgroundColor3 = Color3.fromRGB(10, 10, 10),
-                BackgroundTransparency = 0.5,
-                BorderSizePixel = 0,
+                BackgroundColor3 = Color3.fromRGB(22, 22, 22),
+                BorderColor3 = Color3.fromRGB(50, 50, 50),
+                BorderSizePixel = 2,
                 Size = UDim2.new(1, -5, 0, 34),
                 ZIndex = 2,
                 LayoutOrder = elementOrder
@@ -1405,15 +1201,6 @@ function Linux.Create(config)
             Linux.Instance("UICorner", {
                 Parent = LabelFrame,
                 CornerRadius = UDim.new(0, 6)
-            })
-
-            Linux.Instance("UIGradient", {
-                Parent = LabelFrame,
-                Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
-                    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 139))
-                }),
-                Rotation = 45
             })
 
             local LabelText = Linux.Instance("TextLabel", {
@@ -1523,9 +1310,9 @@ function Linux.Create(config)
 
             local ParagraphFrame = Linux.Instance("Frame", {
                 Parent = container,
-                BackgroundColor3 = Color3.fromRGB(10, 10, 10),
-                BackgroundTransparency = 0.5,
-                BorderSizePixel = 0,
+                BackgroundColor3 = Color3.fromRGB(22, 22, 22),
+                BorderColor3 = Color3.fromRGB(50, 50, 50),
+                BorderSizePixel = 2,
                 Size = UDim2.new(1, -5, 0, 0),
                 AutomaticSize = Enum.AutomaticSize.Y,
                 ZIndex = 2,
@@ -1535,15 +1322,6 @@ function Linux.Create(config)
             Linux.Instance("UICorner", {
                 Parent = ParagraphFrame,
                 CornerRadius = UDim.new(0, 6)
-            })
-
-            Linux.Instance("UIGradient", {
-                Parent = ParagraphFrame,
-                Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
-                    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 139))
-                }),
-                Rotation = 45
             })
 
             Linux.Instance("TextLabel", {
@@ -1566,7 +1344,7 @@ function Linux.Create(config)
                 Position = UDim2.new(0, 5, 0, 25),
                 Font = Enum.Font.Gotham,
                 Text = config.Content or "Content",
-                TextColor3 = Color3.fromRGB(200, 200, 200),
+                TextColor3 = Color3.fromRGB(180, 180, 180),
                 TextSize = 14,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 TextWrapped = true,
@@ -1589,7 +1367,7 @@ function Linux.Create(config)
 
             container.CanvasPosition = Vector2.new(0, 0)
             return {
-                Instance = ParagraphFrame,
+                Instance = Paragraph Rabbit
                 SetTitle = SetTitle,
                 SetContent = SetContent
             }
@@ -1606,9 +1384,9 @@ function Linux.Create(config)
 
             local NotificationFrame = Linux.Instance("Frame", {
                 Parent = container,
-                BackgroundColor3 = Color3.fromRGB(10, 10, 10),
-                BackgroundTransparency = 0.5,
-                BorderSizePixel = 0,
+                BackgroundColor3 = Color3.fromRGB(22, 22, 22),
+                BorderColor3 = Color3.fromRGB(50, 50, 50),
+                BorderSizePixel = 2,
                 Size = UDim2.new(1, -5, 0, 34),
                 ZIndex = 2,
                 LayoutOrder = elementOrder
@@ -1617,15 +1395,6 @@ function Linux.Create(config)
             Linux.Instance("UICorner", {
                 Parent = NotificationFrame,
                 CornerRadius = UDim.new(0, 6)
-            })
-
-            Linux.Instance("UIGradient", {
-                Parent = NotificationFrame,
-                Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
-                    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 139))
-                }),
-                Rotation = 45
             })
 
             Linux.Instance("TextLabel", {
