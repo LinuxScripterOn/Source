@@ -205,11 +205,14 @@ function Linux.Create(config)
     local isMobile = InputService.TouchEnabled and not InputService.KeyboardEnabled
     local uiSize = isMobile and (config.SizeMobile or UDim2.fromOffset(300, 500)) or (config.SizePC or UDim2.fromOffset(550, 355))
 
+    local shadowOffset = 10
+    local shadowSize = UDim2.new(0, uiSize.X.Offset + shadowOffset, 0, uiSize.Y.Offset + shadowOffset)
+
     local MainShadow = Linux.Instance("ImageLabel", {
         Parent = LinuxUI,
         BackgroundTransparency = 1,
-        Size = uiSize,
-        Position = UDim2.new(0.5, -uiSize.X.Offset / 2, 0.5, -uiSize.Y.Offset / 2),
+        Size = shadowSize,
+        Position = UDim2.new(0.5, -(uiSize.X.Offset + shadowOffset) / 2, 0.5, -(uiSize.Y.Offset + shadowOffset) / 2),
         Image = "rbxassetid://1316045217",
         ImageColor3 = Color3.fromRGB(0, 0, 0),
         ImageTransparency = 0.9,
