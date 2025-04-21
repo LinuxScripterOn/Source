@@ -2,24 +2,7 @@ local TweenService = game:GetService("TweenService")
 local InputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
-local DataStoreService = game:GetService("DataStoreService")
 local LocalPlayer = Players.LocalPlayer
-
-local ConfigStore = DataStoreService:GetDataStore("LinuxUIConfig")
-
-local function XQREncode(data, key)
-    local result = {}
-    for i = 1, #data do
-        local char = string.byte(data, i)
-        local keyChar = string.byte(key, (i - 1) % #key + 1)
-        result[i] = string.char(bit32.bxor(char, keyChar))
-    end
-    return table.concat(result)
-end
-
-local function XQRDecode(data, key)
-    return XQREncode(data, key)
-end
 
 local Linux = {}
 
@@ -45,28 +28,40 @@ function Linux:SafeCallback(Function, ...)
     end
 end
 
-function Linux:SaveConfig(key, value)
-    local jsonData = game:GetService("HttpService"):JSONEncode(value)
-    local xqrKey = tostring(LocalPlayer.UserId .. "_linux")
-    local encodedData = XQREncode(jsonData, xqrKey)
-    pcall(function()
-        ConfigStore:SetAsync(tostring(key), encodedData)
+function Linux:SaveConfig(key, value, shouldSave)
+    if not shouldSave then return end
+    local success, err = pcall(function()
+        if not isfolder("LinuxUI") then
+            makefolder("LinuxUI")
+        end
+        local configFile = "LinuxUI/config.json"
+        local configData = {}
+        if isfile(configFile) then
+            configData = game:GetService("HttpService"):JSONDecode(readfile(configFile))
+        end
+        configData[key] = value
+        writefile(configFile, game:GetService("HttpService"):JSONEncode(configData))
     end)
+    if not success then
+        self:Notify({
+            Title = "Save Error",
+            Content = "Failed to save config: " .. tostring(err),
+            Duration = 5
+        })
+    end
 end
 
-function Linux:LoadConfig(key, default)
-    local xqrKey = tostring(LocalPlayer.UserId .. "_linux")
-    local success, encodedData = pcall(function()
-        return ConfigStore:GetAsync(tostring(key))
+function Linux:LoadConfig(key, default, shouldSave)
+    if not shouldSave then return default end
+    local success, value = pcall(function()
+        local configFile = "LinuxUI/config.json"
+        if isfile(configFile) then
+            local configData = game:GetService("HttpService"):JSONDecode(readfile(configFile))
+            return configData[key]
+        end
+        return default
     end)
-    if success and encodedData then
-        local decodedData = XQRDecode(encodedData, xqrKey)
-        local successDecode, value = pcall(function()
-            return game:GetService("HttpService"):JSONDecode(decodedData)
-        end)
-        return successDecode and value or default
-    end
-    return default
+    return success and value or default
 end
 
 function Linux:Notify(config)
@@ -85,7 +80,7 @@ function Linux:Notify(config)
 
     local Notification = Linux.Instance("Frame", {
         Parent = NotificationHolder,
-        BackgroundColor3 = Color3.fromRGB(15, 15, 15),
+        BackgroundColor3 = Color3.fromRGB(40, 40, 40),
         BorderSizePixel = 0,
         Size = UDim2.new(0, notificationWidth, 0, notificationHeight),
         Position = UDim2.new(1, 10, 1, -notificationHeight - 10),
@@ -94,7 +89,7 @@ function Linux:Notify(config)
 
     Linux.Instance("UICorner", {
         Parent = Notification,
-        CornerRadius = UDim.new(0, 5)
+        CornerRadius = UDim.new(0, 6)
     })
 
     Linux.Instance("TextLabel", {
@@ -118,7 +113,7 @@ function Linux:Notify(config)
         Position = UDim2.new(0, 5, 0, 25),
         Font = Enum.Font.SourceSans,
         Text = config.Content or "Content",
-        TextColor3 = Color3.fromRGB(200, 200, 200),
+        TextColor3 = Color3.fromRGB(255, 255, 255),
         TextSize = 14,
         TextWrapped = true,
         TextXAlignment = Enum.TextXAlignment.Left,
@@ -134,7 +129,7 @@ function Linux:Notify(config)
             Position = UDim2.new(0, 5, 0, 45),
             Font = Enum.Font.SourceSans,
             Text = config.SubContent,
-            TextColor3 = Color3.fromRGB(150, 150, 150),
+            TextColor3 = Color3.fromRGB(255, 255, 255),
             TextSize = 12,
             TextWrapped = true,
             TextXAlignment = Enum.TextXAlignment.Left,
@@ -145,7 +140,7 @@ function Linux:Notify(config)
 
     local ProgressBar = Linux.Instance("Frame", {
         Parent = Notification,
-        BackgroundColor3 = Color3.fromRGB(30, 30, 30),
+        BackgroundColor3 = Color3.fromRGB(60, 60, 60),
         Size = UDim2.new(1, -10, 0, 4),
         Position = UDim2.new(0, 5, 1, -9),
         ZIndex = 101,
@@ -159,7 +154,7 @@ function Linux:Notify(config)
 
     local ProgressFill = Linux.Instance("Frame", {
         Parent = ProgressBar,
-        BackgroundColor3 = Color3.fromRGB(0, 120, 255),
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
         Size = UDim2.new(0, 0, 1, 0),
         ZIndex = 101,
         BorderSizePixel = 0
@@ -205,12 +200,14 @@ function Linux.Create(config)
 
     ProtectGui(LinuxUI)
 
+    local shouldSave = config.Save ~= false
+
     local isMobile = InputService.TouchEnabled and not InputService.KeyboardEnabled
     local uiSize = isMobile and (config.SizeMobile or UDim2.fromOffset(300, 500)) or (config.SizePC or UDim2.fromOffset(550, 355))
 
     local Main = Linux.Instance("Frame", {
         Parent = LinuxUI,
-        BackgroundColor3 = Color3.fromRGB(15, 15, 15),
+        BackgroundColor3 = Color3.fromRGB(40, 40, 40),
         BorderSizePixel = 0,
         Size = uiSize,
         Position = UDim2.new(0.5, -uiSize.X.Offset / 2, 0.5, -uiSize.Y.Offset / 2),
@@ -221,31 +218,12 @@ function Linux.Create(config)
 
     Linux.Instance("UICorner", {
         Parent = Main,
-        CornerRadius = UDim.new(0, 5)
-    })
-
-    local DropShadow = Linux.Instance("Frame", {
-        Parent = Main,
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 20, 1, 20),
-        Position = UDim2.new(0, -10, 0, -10),
-        ZIndex = 0
-    })
-
-    Linux.Instance("ImageLabel", {
-        Parent = DropShadow,
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 1, 0),
-        Image = "rbxassetid://6014261993",
-        ImageColor3 = Color3.fromRGB(0, 0, 0),
-        ImageTransparency = 0.7,
-        ScaleType = Enum.ScaleType.Slice,
-        SliceCenter = Rect.new(10, 10, 118, 118)
+        CornerRadius = UDim.new(0, 10)
     })
 
     local TopBar = Linux.Instance("Frame", {
         Parent = Main,
-        BackgroundColor3 = Color3.fromRGB(20, 20, 20),
+        BackgroundColor3 = Color3.fromRGB(30, 30, 30),
         BorderSizePixel = 0,
         Size = UDim2.new(1, 0, 0, 30),
         ZIndex = 2
@@ -253,7 +231,7 @@ function Linux.Create(config)
 
     Linux.Instance("UICorner", {
         Parent = TopBar,
-        CornerRadius = UDim.new(0, 5)
+        CornerRadius = UDim.new(0, 6)
     })
 
     local TitleLabel = Linux.Instance("TextLabel", {
@@ -272,7 +250,7 @@ function Linux.Create(config)
 
     local TabsBar = Linux.Instance("Frame", {
         Parent = Main,
-        BackgroundColor3 = Color3.fromRGB(20, 20, 20),
+        BackgroundColor3 = Color3.fromRGB(30, 30, 30),
         Position = UDim2.new(0, 0, 0, 30),
         Size = UDim2.new(0, config.TabWidth or 110, 1, -30),
         ZIndex = 2,
@@ -335,7 +313,7 @@ function Linux.Create(config)
 
         local TabBtn = Linux.Instance("TextButton", {
             Parent = TabHolder,
-            BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+            BackgroundColor3 = Color3.fromRGB(40, 40, 40),
             BorderSizePixel = 0,
             Size = UDim2.new(1, -5, 0, 30),
             Font = Enum.Font.SourceSans,
@@ -349,7 +327,7 @@ function Linux.Create(config)
 
         Linux.Instance("UICorner", {
             Parent = TabBtn,
-            CornerRadius = UDim.new(0, 5)
+            CornerRadius = UDim.new(0, 6)
         })
 
         local TabIcon
@@ -443,7 +421,7 @@ function Linux.Create(config)
 
         local TitleFrame = Linux.Instance("Frame", {
             Parent = Content,
-            BackgroundColor3 = Color3.fromRGB(20, 20, 20),
+            BackgroundColor3 = Color3.fromRGB(30, 30, 30),
             BorderSizePixel = 0,
             Size = UDim2.new(1, -5, 0, 30),
             Position = UDim2.new(0, 5, 0, 0),
@@ -470,17 +448,17 @@ function Linux.Create(config)
                 tab.Content.Visible = false
                 tab.TitleFrame.Visible = false
                 tab.Text.TextColor3 = Color3.fromRGB(255, 255, 255)
-                tab.Button.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+                tab.Button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
                 if tab.Icon then
                     tab.Icon.ImageColor3 = Color3.fromRGB(255, 255, 255)
                 end
             end
             TabContent.Visible = true
             TitleFrame.Visible = true
-            TabText.TextColor3 = Color3.fromRGB(0, 120, 255)
-            TabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+            TabText.TextColor3 = Color3.fromRGB(255, 255, 255)
+            TabBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
             if TabIcon then
-                TabIcon.ImageColor3 = Color3.fromRGB(0, 120, 255)
+                TabIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
             end
             CurrentTab = tabIndex
             Container1.CanvasPosition = Vector2.new(0, 0)
@@ -517,7 +495,7 @@ function Linux.Create(config)
 
             local BtnFrame = Linux.Instance("Frame", {
                 Parent = container,
-                BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+                BackgroundColor3 = Color3.fromRGB(40, 40, 40),
                 BorderSizePixel = 0,
                 Size = UDim2.new(1, -5, 0, 34),
                 ZIndex = 2,
@@ -526,7 +504,7 @@ function Linux.Create(config)
 
             Linux.Instance("UICorner", {
                 Parent = BtnFrame,
-                CornerRadius = UDim.new(0, 5)
+                CornerRadius = UDim.new(0, 6)
             })
 
             local Btn = Linux.Instance("TextButton", {
@@ -558,9 +536,9 @@ function Linux.Create(config)
                 ZIndex = 2
             })
 
-            local hoverColor = Color3.fromRGB(30, 30, 30)
-            local clickColor = Color3.fromRGB(35, 35, 35)
-            local originalColor = Color3.fromRGB(25, 25, 25)
+            local hoverColor = Color3.fromRGB(50, 50, 50)
+            local clickColor = Color3.fromRGB(70, 70, 70)
+            local originalColor = Color3.fromRGB(40, 40, 40)
             local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
             Btn.MouseEnter:Connect(function()
@@ -602,7 +580,7 @@ function Linux.Create(config)
 
             local Toggle = Linux.Instance("Frame", {
                 Parent = container,
-                BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+                BackgroundColor3 = Color3.fromRGB(40, 40, 40),
                 BorderSizePixel = 0,
                 Size = UDim2.new(1, -5, 0, 34),
                 ZIndex = 2,
@@ -611,7 +589,7 @@ function Linux.Create(config)
 
             Linux.Instance("UICorner", {
                 Parent = Toggle,
-                CornerRadius = UDim.new(0, 5)
+                CornerRadius = UDim.new(0, 6)
             })
 
             Linux.Instance("TextLabel", {
@@ -629,7 +607,7 @@ function Linux.Create(config)
 
             local ToggleBox = Linux.Instance("Frame", {
                 Parent = Toggle,
-                BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+                BackgroundColor3 = Color3.fromRGB(60, 60, 60),
                 Size = UDim2.new(0, 20, 0, 20),
                 Position = UDim2.new(1, -25, 0, 7),
                 ZIndex = 2,
@@ -647,12 +625,12 @@ function Linux.Create(config)
                 Size = UDim2.new(0, 14, 0, 14),
                 Position = UDim2.new(0.5, -7, 0.5, -7),
                 Image = "rbxassetid://10709790644",
-                ImageColor3 = Color3.fromRGB(0, 120, 255),
+                ImageColor3 = Color3.fromRGB(255, 255, 255),
                 Visible = false,
                 ZIndex = 3
             })
 
-            local State = Linux:LoadConfig("Toggle_" .. config.Name, config.Default or false)
+            local State = Linux:LoadConfig("Toggle_" .. config.Name, config.Default or false, shouldSave)
             local isToggling = false
 
             local function UpdateToggle()
@@ -661,14 +639,14 @@ function Linux.Create(config)
                 local tween = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
                 if State then
                     CheckIcon.Visible = true
-                    TweenService:Create(ToggleBox, tween, {BackgroundColor3 = Color3.fromRGB(0, 120, 255)}):Play()
+                    TweenService:Create(ToggleBox, tween, {BackgroundColor3 = Color3.fromRGB(80, 80, 80)}):Play()
                 else
                     CheckIcon.Visible = false
-                    TweenService:Create(ToggleBox, tween, {BackgroundColor3 = Color3.fromRGB(40, 40, 40)}):Play()
+                    TweenService:Create(ToggleBox, tween, {BackgroundColor3 = Color3.fromRGB(60, 60, 60)}):Play()
                 end
                 task.wait(0.2)
                 isToggling = false
-                Linux:SaveConfig("Toggle_" .. config.Name, State)
+                Linux:SaveConfig("Toggle_" .. config.Name, State, shouldSave)
             end
 
             UpdateToggle()
@@ -696,7 +674,7 @@ function Linux.Create(config)
 
             local Dropdown = Linux.Instance("Frame", {
                 Parent = container,
-                BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+                BackgroundColor3 = Color3.fromRGB(40, 40, 40),
                 BorderSizePixel = 0,
                 Size = UDim2.new(1, -5, 0, 34),
                 ZIndex = 2,
@@ -705,7 +683,7 @@ function Linux.Create(config)
 
             Linux.Instance("UICorner", {
                 Parent = Dropdown,
-                CornerRadius = UDim.new(0, 5)
+                CornerRadius = UDim.new(0, 6)
             })
 
             local DropdownButton = Linux.Instance("TextButton", {
@@ -739,7 +717,7 @@ function Linux.Create(config)
                 Size = UDim2.new(0.5, -40, 1, 0),
                 Position = UDim2.new(0.5, 0, 0, 0),
                 Font = Enum.Font.Gotham,
-                Text = Linux:LoadConfig("Dropdown_" .. config.Name, config.Default or (config.Options and config.Options[1]) or "None"),
+                Text = Linux:LoadConfig("Dropdown_" .. config.Name, config.Default or (config.Options and config.Options[1]) or "None", shouldSave),
                 TextColor3 = Color3.fromRGB(255, 255, 255),
                 TextSize = 14,
                 TextXAlignment = Enum.TextXAlignment.Right,
@@ -758,7 +736,7 @@ function Linux.Create(config)
 
             local DropFrame = Linux.Instance("ScrollingFrame", {
                 Parent = container,
-                BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+                BackgroundColor3 = Color3.fromRGB(40, 40, 40),
                 BorderSizePixel = 0,
                 Size = UDim2.new(1, -5, 0, 0),
                 CanvasSize = UDim2.new(0, 0, 0, 0),
@@ -771,7 +749,7 @@ function Linux.Create(config)
 
             Linux.Instance("UICorner", {
                 Parent = DropFrame,
-                CornerRadius = UDim.new(0, 5)
+                CornerRadius = UDim.new(0, 6)
             })
 
             Linux.Instance("UIListLayout", {
@@ -788,7 +766,7 @@ function Linux.Create(config)
 
             local Options = config.Options or {}
             local IsOpen = false
-            local SelectedValue = Linux:LoadConfig("Dropdown_" .. config.Name, config.Default or (Options[1] or "None"))
+            local SelectedValue = Linux:LoadConfig("Dropdown_" .. config.Name, config.Default or (Options[1] or "None"), shouldSave)
 
             local function UpdateDropSize()
                 local optionHeight = 25
@@ -818,12 +796,12 @@ function Linux.Create(config)
                     for _, opt in pairs(Options) do
                         local OptBtn = Linux.Instance("TextButton", {
                             Parent = DropFrame,
-                            BackgroundColor3 = Color3.fromRGB(30, 30, 30),
+                            BackgroundColor3 = Color3.fromRGB(40, 40, 40),
                             BorderSizePixel = 0,
                             Size = UDim2.new(1, -5, 0, 25),
                             Font = Enum.Font.Gotham,
                             Text = tostring(opt),
-                            TextColor3 = opt == SelectedValue and Color3.fromRGB(0, 120, 255) or Color3.fromRGB(200, 200, 200),
+                            TextColor3 = opt == SelectedValue and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 200),
                             TextSize = 14,
                             TextXAlignment = Enum.TextXAlignment.Center,
                             ZIndex = 3,
@@ -832,16 +810,16 @@ function Linux.Create(config)
 
                         Linux.Instance("UICorner", {
                             Parent = OptBtn,
-                            CornerRadius = UDim.new(0, 5)
+                            CornerRadius = UDim.new(0, 6)
                         })
 
                         OptBtn.MouseButton1Click:Connect(function()
                             SelectedValue = opt
                             Selected.Text = tostring(opt)
-                            Linux:SaveConfig("Dropdown_" .. config.Name, SelectedValue)
+                            Linux:SaveConfig("Dropdown_" .. config.Name, SelectedValue, shouldSave)
                             for _, btn in pairs(DropFrame:GetChildren()) do
                                 if btn:IsA("TextButton") then
-                                    btn.TextColor3 = btn.Text == tostring(opt) and Color3.fromRGB(0, 120, 255) or Color3.fromRGB(200, 200, 200)
+                                    btn.TextColor3 = btn.Text == tostring(opt) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 200)
                                 end
                             end
                             spawn(function() Linux:SafeCallback(config.Callback, opt) end)
@@ -864,7 +842,7 @@ function Linux.Create(config)
                 Options = newOptions or {}
                 SelectedValue = Options[1] or "None"
                 Selected.Text = tostring(SelectedValue)
-                Linux:SaveConfig("Dropdown_" .. config.Name, SelectedValue)
+                Linux:SaveConfig("Dropdown_" .. config.Name, SelectedValue, shouldSave)
                 PopulateOptions()
             end
 
@@ -872,10 +850,10 @@ function Linux.Create(config)
                 if table.find(Options, value) then
                     SelectedValue = value
                     Selected.Text = tostring(value)
-                    Linux:SaveConfig("Dropdown_" .. config.Name, SelectedValue)
+                    Linux:SaveConfig("Dropdown_" .. config.Name, SelectedValue, shouldSave)
                     for _, btn in pairs(DropFrame:GetChildren()) do
                         if btn:IsA("TextButton") then
-                            btn.TextColor3 = btn.Text == tostring(value) and Color3.fromRGB(0, 120, 255) or Color3.fromRGB(200, 200, 200)
+                            btn.TextColor3 = btn.Text == tostring(value) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 200)
                         end
                     end
                     spawn(function() Linux:SafeCallback(config.Callback, value) end)
@@ -902,7 +880,7 @@ function Linux.Create(config)
 
             local Slider = Linux.Instance("Frame", {
                 Parent = container,
-                BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+                BackgroundColor3 = Color3.fromRGB(40, 40, 40),
                 BorderSizePixel = 0,
                 Size = UDim2.new(1, -5, 0, 34),
                 ZIndex = 2,
@@ -911,7 +889,7 @@ function Linux.Create(config)
 
             Linux.Instance("UICorner", {
                 Parent = Slider,
-                CornerRadius = UDim.new(0, 5)
+                CornerRadius = UDim.new(0, 6)
             })
 
             local TitleLabel = Linux.Instance("TextLabel", {
@@ -929,7 +907,7 @@ function Linux.Create(config)
 
             local SliderBar = Linux.Instance("Frame", {
                 Parent = Slider,
-                BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+                BackgroundColor3 = Color3.fromRGB(60, 60, 60),
                 Size = UDim2.new(1, -80, 0, 6),
                 Position = UDim2.new(0, 65, 0, 20),
                 ZIndex = 2,
@@ -956,7 +934,7 @@ function Linux.Create(config)
 
             local FillBar = Linux.Instance("Frame", {
                 Parent = SliderBar,
-                BackgroundColor3 = Color3.fromRGB(0, 120, 255),
+                BackgroundColor3 = Color3.fromRGB(80, 80, 80),
                 Size = UDim2.new(0, 0, 1, 0),
                 Position = UDim2.new(0, 0, 0, 0),
                 ZIndex = 2,
@@ -984,7 +962,7 @@ function Linux.Create(config)
 
             local Min = config.Min or 0
             local Max = config.Max or 100
-            local Default = Linux:LoadConfig("Slider_" .. config.Name, config.Default or Min)
+            local Default = Linux:LoadConfig("Slider_" .. config.Name, config.Default or Min, shouldSave)
             local Value = Default
 
             local function AnimateValueLabel()
@@ -1004,7 +982,7 @@ function Linux.Create(config)
                 local percentage = math.floor((Value - Min) / (Max - Min) * 100 + 0.5)
                 ValueLabel.Text = tostring(Value) .. "/" .. tostring(Max)
                 AnimateValueLabel()
-                Linux:SaveConfig("Slider_" .. config.Name, Value)
+                Linux:SaveConfig("Slider_" .. config.Name, Value, shouldSave)
                 spawn(function() Linux:SafeCallback(config.Callback, Value) end)
             end
 
@@ -1038,7 +1016,7 @@ function Linux.Create(config)
                 local percentage = math.floor((Value - Min) / (Max - Min) * 100 + 0.5)
                 ValueLabel.Text = tostring(Value) .. "/" .. tostring(Max)
                 AnimateValueLabel()
-                Linux:SaveConfig("Slider_" .. config.Name, Value)
+                Linux:SaveConfig("Slider_" .. config.Name, Value, shouldSave)
                 spawn(function() Linux:SafeCallback(config.Callback, Value) end)
             end
 
@@ -1063,7 +1041,7 @@ function Linux.Create(config)
 
             local Input = Linux.Instance("Frame", {
                 Parent = container,
-                BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+                BackgroundColor3 = Color3.fromRGB(40, 40, 40),
                 BorderSizePixel = 0,
                 Size = UDim2.new(1, -5, 0, 34),
                 ZIndex = 2,
@@ -1072,7 +1050,7 @@ function Linux.Create(config)
 
             Linux.Instance("UICorner", {
                 Parent = Input,
-                CornerRadius = UDim.new(0, 5)
+                CornerRadius = UDim.new(0, 6)
             })
 
             Linux.Instance("TextLabel", {
@@ -1095,7 +1073,7 @@ function Linux.Create(config)
                 Size = UDim2.new(0.28, -5, 0, 26),
                 Position = UDim2.new(1, -55, 0.5, -12),
                 Font = Enum.Font.Gotham,
-                Text = Linux:LoadConfig("Input_" .. config.Name, config.Default or ""),
+                Text = Linux:LoadConfig("Input_" .. config.Name, config.Default or "", shouldSave),
                 PlaceholderText = config.Placeholder or "Text Here",
                 PlaceholderColor3 = Color3.fromRGB(200, 200, 200),
                 TextColor3 = Color3.fromRGB(255, 255, 255),
@@ -1110,7 +1088,7 @@ function Linux.Create(config)
 
             Linux.Instance("UICorner", {
                 Parent = TextBox,
-                CornerRadius = UDim.new(0, 5)
+                CornerRadius = UDim.new(0, 6)
             })
 
             local MaxLength = 50
@@ -1127,7 +1105,7 @@ function Linux.Create(config)
 
             local function UpdateInput()
                 CheckTextBounds()
-                Linux:SaveConfig("Input_" .. config.Name, TextBox.Text)
+                Linux:SaveConfig("Input_" .. config.Name, TextBox.Text, shouldSave)
                 spawn(function() Linux:SafeCallback(config.Callback, TextBox.Text) end)
             end
 
@@ -1171,7 +1149,7 @@ function Linux.Create(config)
 
             local LabelFrame = Linux.Instance("Frame", {
                 Parent = container,
-                BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+                BackgroundColor3 = Color3.fromRGB(40, 40, 40),
                 BorderSizePixel = 0,
                 Size = UDim2.new(1, -5, 0, 34),
                 ZIndex = 2,
@@ -1180,7 +1158,7 @@ function Linux.Create(config)
 
             Linux.Instance("UICorner", {
                 Parent = LabelFrame,
-                CornerRadius = UDim.new(0, 5)
+                CornerRadius = UDim.new(0, 6)
             })
 
             local LabelText = Linux.Instance("TextLabel", {
@@ -1290,7 +1268,7 @@ function Linux.Create(config)
 
             local ParagraphFrame = Linux.Instance("Frame", {
                 Parent = container,
-                BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+                BackgroundColor3 = Color3.fromRGB(40, 40, 40),
                 BorderSizePixel = 0,
                 Size = UDim2.new(1, -5, 0, 0),
                 AutomaticSize = Enum.AutomaticSize.Y,
@@ -1300,7 +1278,7 @@ function Linux.Create(config)
 
             Linux.Instance("UICorner", {
                 Parent = ParagraphFrame,
-                CornerRadius = UDim.new(0, 5)
+                CornerRadius = UDim.new(0, 6)
             })
 
             Linux.Instance("TextLabel", {
@@ -1363,7 +1341,7 @@ function Linux.Create(config)
 
             local NotificationFrame = Linux.Instance("Frame", {
                 Parent = container,
-                BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+                BackgroundColor3 = Color3.fromRGB(40, 40, 40),
                 BorderSizePixel = 0,
                 Size = UDim2.new(1, -5, 0, 34),
                 ZIndex = 2,
@@ -1372,7 +1350,7 @@ function Linux.Create(config)
 
             Linux.Instance("UICorner", {
                 Parent = NotificationFrame,
-                CornerRadius = UDim.new(0, 5)
+                CornerRadius = UDim.new(0, 6)
             })
 
             Linux.Instance("TextLabel", {
